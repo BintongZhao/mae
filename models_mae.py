@@ -22,7 +22,7 @@ from util.pos_embed import get_2d_sincos_pos_embed
 class MaskedAutoencoderViT(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
-    def __init__(self, img_size=224, patch_size=16, in_chans=3,
+    def __init__(self, img_size=(128, 16), patch_size=4, in_chans=1,
                  embed_dim=1024, depth=24, num_heads=16,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
                  mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False):
@@ -60,15 +60,19 @@ class MaskedAutoencoderViT(nn.Module):
 
         self.norm_pix_loss = norm_pix_loss
 
-        self.initialize_weights()
+        self.initialize_weights(img_size, patch_size)
 
-    def initialize_weights(self):
+    def initialize_weights(self, img_size, patch_size):
         # initialization
         # initialize (and freeze) pos_embed by sin-cos embedding
-        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], int(self.patch_embed.num_patches**.5), cls_token=True)
+        grid_size = (img_size[0] // patch_size, img_size[1] // patch_size)
+
+        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], grid_size, cls_token=True)
+        print(f"Positional embed shape: {pos_embed.shape}")
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
-        decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], int(self.patch_embed.num_patches**.5), cls_token=True)
+        decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], grid_size, cls_token=True)
+        print(f"Decoder positional embed shape: {decoder_pos_embed.shape}")
         self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
 
         # initialize patch_embed like nn.Linear (instead of nn.Conv2d)
@@ -94,30 +98,30 @@ class MaskedAutoencoderViT(nn.Module):
 
     def patchify(self, imgs):
         """
-        imgs: (N, 3, H, W)
-        x: (N, L, patch_size**2 *3)
+        imgs: (N, 1, H, W)
+        x: (N, L, patch_size**2 *1)
         """
         p = self.patch_embed.patch_size[0]
-        assert imgs.shape[2] == imgs.shape[3] and imgs.shape[2] % p == 0
+        assert imgs.shape[2] % p == 0 and imgs.shape[3] % p == 0
 
-        h = w = imgs.shape[2] // p
-        x = imgs.reshape(shape=(imgs.shape[0], 3, h, p, w, p))
+        h, w = imgs.shape[2] // p, imgs.shape[3] // p
+        x = imgs.reshape(shape=(imgs.shape[0], 1, h, p, w, p))
         x = torch.einsum('nchpwq->nhwpqc', x)
-        x = x.reshape(shape=(imgs.shape[0], h * w, p**2 * 3))
+        x = x.reshape(shape=(imgs.shape[0], h * w, p ** 2 * 1))
         return x
 
     def unpatchify(self, x):
         """
-        x: (N, L, patch_size**2 *3)
-        imgs: (N, 3, H, W)
+        x: (N, L, patch_size**2 *1)
+        imgs: (N, 1, H, W)
         """
         p = self.patch_embed.patch_size[0]
-        h = w = int(x.shape[1]**.5)
+        h, w = self.patch_embed.img_size[0] // p, self.patch_embed.img_size[1] // p
         assert h * w == x.shape[1]
-        
-        x = x.reshape(shape=(x.shape[0], h, w, p, p, 3))
+
+        x = x.reshape(shape=(x.shape[0], h, w, p, p, 1))
         x = torch.einsum('nhwpqc->nchpwq', x)
-        imgs = x.reshape(shape=(x.shape[0], 3, h * p, h * p))
+        imgs = x.reshape(shape=(x.shape[0], 1, h * p, h * p))
         return imgs
 
     def random_masking(self, x, mask_ratio):
@@ -220,6 +224,14 @@ class MaskedAutoencoderViT(nn.Module):
         return loss, pred, mask
 
 
+def mae_vit_base_patch4_dec512d8b(**kwargs):
+    model = MaskedAutoencoderViT(
+        patch_size=4, embed_dim=768, depth=12, num_heads=12,
+        decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
+        mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    return model
+
+
 def mae_vit_base_patch16_dec512d8b(**kwargs):
     model = MaskedAutoencoderViT(
         patch_size=16, embed_dim=768, depth=12, num_heads=12,
@@ -245,6 +257,7 @@ def mae_vit_huge_patch14_dec512d8b(**kwargs):
 
 
 # set recommended archs
+mae_vit_base_patch4 = mae_vit_base_patch4_dec512d8b
 mae_vit_base_patch16 = mae_vit_base_patch16_dec512d8b  # decoder: 512 dim, 8 blocks
 mae_vit_large_patch16 = mae_vit_large_patch16_dec512d8b  # decoder: 512 dim, 8 blocks
 mae_vit_huge_patch14 = mae_vit_huge_patch14_dec512d8b  # decoder: 512 dim, 8 blocks

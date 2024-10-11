@@ -20,7 +20,6 @@ import torch
 import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
-import torchvision.datasets as datasets
 
 import timm
 
@@ -34,20 +33,23 @@ import models_mae
 
 from engine_pretrain import train_one_epoch
 
+from util.crop_for_wifi import CropForWiFi
+from util.wifi_dataset import WiFiDataset
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
-    parser.add_argument('--batch_size', default=64, type=int,
+    parser.add_argument('--batch_size', default=4, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
-    parser.add_argument('--epochs', default=400, type=int)
+    parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
 
     # Model parameters
-    parser.add_argument('--model', default='mae_vit_large_patch16', type=str, metavar='MODEL',
+    parser.add_argument('--model', default='mae_vit_base_patch4', type=str, metavar='MODEL',
                         help='Name of model to train')
 
-    parser.add_argument('--input_size', default=224, type=int,
+    parser.add_argument('--input_size', default=(128, 16), type=tuple,
                         help='images input size')
 
     parser.add_argument('--mask_ratio', default=0.75, type=float,
@@ -72,12 +74,15 @@ def get_args_parser():
                         help='epochs to warmup LR')
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
+    data_path = os.path.join('../', '../', 'data', 'wifi-dataset')
+    parser.add_argument('--data_path', default=data_path, type=str,
                         help='dataset path')
 
-    parser.add_argument('--output_dir', default='./output_dir',
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    output_dir = os.path.join('./', 'output_dir', timestamp)
+    parser.add_argument('--output_dir', default=output_dir,
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='./output_dir',
+    parser.add_argument('--log_dir', default=output_dir,
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -87,7 +92,7 @@ def get_args_parser():
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
-    parser.add_argument('--num_workers', default=10, type=int)
+    parser.add_argument('--num_workers', default=4, type=int)
     parser.add_argument('--pin_mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
@@ -121,11 +126,9 @@ def main(args):
 
     # simple augmentation
     transform_train = transforms.Compose([
-            transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
+        CropForWiFi(),
+        transforms.ToTensor()])
+    dataset_train = WiFiDataset(root_dir=args.data_path, mode='train', transform=transform_train)
     print(dataset_train)
 
     if True:  # args.distributed:
@@ -194,7 +197,7 @@ def main(args):
             log_writer=log_writer,
             args=args
         )
-        if args.output_dir and (epoch % 20 == 0 or epoch + 1 == args.epochs):
+        if args.output_dir and (epoch % 2 == 0 or epoch + 1 == args.epochs):
             misc.save_model(
                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
