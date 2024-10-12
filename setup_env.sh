@@ -9,3 +9,6 @@ pip install tensorboard==2.4.0
 pip install protobuf==3.20.3
 pip install numpy==1.19.5
 pip install scipy
+
+pip install matplotlib==3.3.4
+pip install matplotlib-inline
