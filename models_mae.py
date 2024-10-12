@@ -28,6 +28,8 @@ class MaskedAutoencoderViT(nn.Module):
                  mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False):
         super().__init__()
 
+        self.grid_size = (img_size[0] // patch_size, img_size[1] // patch_size)
+
         # --------------------------------------------------------------------------
         # MAE encoder specifics
         self.patch_embed = PatchEmbed(img_size, patch_size, in_chans, embed_dim)
@@ -60,18 +62,16 @@ class MaskedAutoencoderViT(nn.Module):
 
         self.norm_pix_loss = norm_pix_loss
 
-        self.initialize_weights(img_size, patch_size)
+        self.initialize_weights()
 
-    def initialize_weights(self, img_size, patch_size):
+    def initialize_weights(self):
         # initialization
         # initialize (and freeze) pos_embed by sin-cos embedding
-        grid_size = (img_size[0] // patch_size, img_size[1] // patch_size)
-
-        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], grid_size, cls_token=True)
+        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], self.grid_size, cls_token=True)
         print(f"Positional embed shape: {pos_embed.shape}")
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
-        decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], grid_size, cls_token=True)
+        decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], self.grid_size, cls_token=True)
         print(f"Decoder positional embed shape: {decoder_pos_embed.shape}")
         self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
 
@@ -151,6 +151,39 @@ class MaskedAutoencoderViT(nn.Module):
 
         return x_masked, mask, ids_restore
 
+    def gaussian_masking(self, x, mask_ratio, sigma=0.5):
+        N, L, D = x.shape  # batch, length, dim
+        len_keep = int(L * (1 - mask_ratio))
+
+        # Ensure the total number of patches (L) matches the grid size
+        assert self.grid_size[0] * self.grid_size[1] == L, "L must match the product of grid_size[0] and grid_size[1]"
+
+        # Create a 2D Gaussian kernel based on the grid size
+        x_range = torch.linspace(-1.0, 1.0, self.grid_size[1], device=x.device)  # 生成沿宽度方向的等间距点
+        y_range = torch.linspace(-1.0, 1.0, self.grid_size[0], device=x.device)  # 生成沿高度方向的等间距点
+        x_grid, y_grid = torch.meshgrid(x_range, y_range)
+
+        gaussian_kernel = torch.exp(-(x_grid ** 2 + y_grid ** 2) / (2 * sigma ** 2))
+        # Flatten the kernel to match the patch sequence
+        gaussian_weights = gaussian_kernel.flatten()    # [L]
+        # Repeat for each sample in the batch
+        gaussian_weights = gaussian_weights.unsqueeze(0).repeat(N, 1)   # [N, L]
+
+        # Sort the patches based on their Gaussian weights (descending order)
+        ids_shuffle = torch.argsort(gaussian_weights, dim=1, descending=True)   # high weights first
+        ids_restore = torch.argsort(ids_shuffle, dim=1)
+
+        # Keep the top len_keep patches
+        ids_keep = ids_shuffle[:, :len_keep]
+        x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D))
+
+        # Generate the binary mask: 0 is keep, 1 is remove
+        mask = torch.ones([N, L], device=x.device)
+        mask[:, :len_keep] = 0
+        mask = torch.gather(mask, dim=1, index=ids_restore)
+
+        return x_masked, mask, ids_restore
+
     def forward_encoder(self, x, mask_ratio):
         # embed patches
         x = self.patch_embed(x)
@@ -159,7 +192,8 @@ class MaskedAutoencoderViT(nn.Module):
         x = x + self.pos_embed[:, 1:, :]
 
         # masking: length -> length * mask_ratio
-        x, mask, ids_restore = self.random_masking(x, mask_ratio)
+        # x, mask, ids_restore = self.random_masking(x, mask_ratio)
+        x, mask, ids_restore = self.gaussian_masking(x, mask_ratio)
 
         # append cls token
         cls_token = self.cls_token + self.pos_embed[:, :1, :]
