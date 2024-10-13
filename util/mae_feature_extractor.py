@@ -3,8 +3,8 @@ import models_mae
 
 
 class MAEFeatureExtractor:
-    def __init__(self, model_name, checkpoint_path):
-        self.device = self.prepare_device()
+    def __init__(self, model_name, checkpoint_path, device=None):
+        self.device = device or self.prepare_device()
         self.model = self.prepare_model(model_name, checkpoint_path, self.device)
 
     @staticmethod
