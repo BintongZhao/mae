@@ -12,3 +12,5 @@ pip install scipy
 
 pip install matplotlib==3.3.4
 pip install matplotlib-inline
+
+pip install jupyter
