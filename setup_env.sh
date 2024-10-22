@@ -3,7 +3,8 @@
 conda create --name mae python=3.8 -y
 conda activate mae
 
-pip install torch==1.8.1+cu102 torchvision==0.9.1+cu102 torchaudio==0.8.1 -f https://download.pytorch.org/whl/torch_stable.html
+conda install pytorch==1.13.0 torchvision==0.14.0 torchaudio==0.13.0 pytorch-cuda=11.7 -c pytorch -c nvidia
+
 pip install timm==0.3.2
 pip install tensorboard==2.4.0
 pip install protobuf==3.20.3
