@@ -20,6 +20,7 @@ def evaluate(net, feature_extractor, data_iter, loss_func):
     net.eval()
     with torch.no_grad():
         for x, y in data_iter:
+            # x: [batch_size, channel_size, aoa, tof] -> [batch_size, ?, ?]
             x = feature_extractor.extract(x)
             x, y = x.to(device), y.to(device)
             y_hat = net(x)
@@ -51,6 +52,7 @@ def train(net, feature_extractor, train_iter, val_iter, learning_rate, num_epoch
         net.train()
         for i, (x, y) in enumerate(train_iter):
             optimizer.zero_grad()
+            # x: [batch_size, channel_size, aoa, tof] -> [batch_size, ?, ?]
             x = feature_extractor.extract(x)
             x, y = x.to(devices[0]), y.to(devices[0])
             y_hat = net(x)

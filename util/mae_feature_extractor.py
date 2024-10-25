@@ -30,9 +30,24 @@ class MAEFeatureExtractor:
 
         return features[:, 0, :] if use_cls_token else features[:, 1:, :]
 
-    def extract(self, input_tensor, use_cls_token=False):
+    def extract(self, input_tensor, use_cls_token=False, fusion_method='mean'):
+        batch_size, channel_num, aoa, tof = input_tensor.shape
+        # input_tensor: [batch_size, channel_num, aoa, tof] -> [batch_size * channel_num, aoa, tof]
+        input_tensor = input_tensor.view(batch_size * channel_num, aoa, tof)
+        # input_tensor: [batch_size * channel_num, aoa, tof] -> [batch_size * channel_num, 1, aoa, tof]
+        input_tensor = input_tensor.unsqueeze(1)
         input_tensor = input_tensor.to(self.device)
-        return self.extract_features(input_tensor, use_cls_token)
+
+        # todo xinglibao hard coding use_cls_token == False
+        output_tensor = self.extract_features(input_tensor, False)
+        # output_tensor: [batch_size * channel_num, ?, ?] -> [batch_size, channel_num, ?, ?]
+        output_tensor = output_tensor.view(batch_size, channel_num, output_tensor.shape[1], output_tensor.shape[2])
+
+        # todo xinglibao hard coding fusion_method == 'mean'
+        if fusion_method == 'mean':
+            # output_tensor: [batch_size, channel_num, ?, ?] -> [batch_size, ?, ?]
+            output_tensor = torch.mean(output_tensor, dim=1)
+        return output_tensor
 
 
 if __name__ == '__main__':
@@ -41,7 +56,7 @@ if __name__ == '__main__':
 
     extractor = MAEFeatureExtractor(model_name, checkpoint_path)
 
-    input_tensor = torch.randn(64, 1, 128, 16)
+    input_tensor = torch.randn(8, 6, 128, 16)
 
     features = extractor.extract(input_tensor)
 
