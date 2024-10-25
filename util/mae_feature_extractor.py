@@ -47,6 +47,7 @@ class MAEFeatureExtractor:
         if fusion_method == 'mean':
             # output_tensor: [batch_size, channel_num, ?, ?] -> [batch_size, ?, ?]
             output_tensor = torch.mean(output_tensor, dim=1)
+
         return output_tensor
 
 

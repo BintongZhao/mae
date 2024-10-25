@@ -68,11 +68,11 @@ class MaskedAutoencoderViT(nn.Module):
         # initialization
         # initialize (and freeze) pos_embed by sin-cos embedding
         pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], self.grid_size, cls_token=True)
-        print(f"Positional embed shape: {pos_embed.shape}")
+        # print(f"Positional embed shape: {pos_embed.shape}")
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
         decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], self.grid_size, cls_token=True)
-        print(f"Decoder positional embed shape: {decoder_pos_embed.shape}")
+        # print(f"Decoder positional embed shape: {decoder_pos_embed.shape}")
         self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
 
         # initialize patch_embed like nn.Linear (instead of nn.Conv2d)
