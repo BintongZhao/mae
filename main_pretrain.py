@@ -26,15 +26,15 @@ import timm
 assert timm.__version__ == "0.3.2"  # version check
 import timm.optim.optim_factory as optim_factory
 
-import util.misc as misc
-from util.misc import NativeScalerWithGradNormCount as NativeScaler
+import utils.misc as misc
+from utils.misc import NativeScalerWithGradNormCount as NativeScaler
 
 import models_mae
 
 from engine_pretrain import train_one_epoch
 
-from util.crop_for_wifi import CropForWiFi
-from util.wifi_dataset import WiFiDataset
+from utils.crop_for_wifi import CropForWiFi
+from utils.wifi_dataset import WiFiDataset
 
 
 def get_args_parser():

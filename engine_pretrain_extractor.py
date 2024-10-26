@@ -1,7 +1,7 @@
 import os
 import torch
 from torch import nn
-from util.accumulator import Accumulator
+from utils.accumulator import Accumulator
 
 
 def random_mask(x, mask_percentage=0.75, device=None):

@@ -3,8 +3,8 @@ import datetime
 import torch
 
 from torch.utils.data import DataLoader
-from util.env_dataset import EnvDataset
-from util.logger import Logger
+from utils.env_dataset import EnvDataset
+from utils.logger import Logger
 from models.unet import UNet
 from engine_pretrain_extractor import train
 

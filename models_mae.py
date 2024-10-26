@@ -16,8 +16,8 @@ import torch.nn as nn
 
 from timm.models.vision_transformer import PatchEmbed, Block
 
-from util.pos_embed import get_2d_sincos_pos_embed
-from util.mask import batch_gaussian_mask
+from utils.pos_embed import get_2d_sincos_pos_embed
+from utils.mask import batch_gaussian_mask
 
 
 class MaskedAutoencoderViT(nn.Module):

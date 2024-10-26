@@ -1,7 +1,7 @@
 import os
 import torch
 from torch import nn
-from util.accumulator import Accumulator
+from utils.accumulator import Accumulator
 
 
 def accuracy(y_hat, y):
