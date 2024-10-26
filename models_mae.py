@@ -239,9 +239,12 @@ class MaskedAutoencoderViT(nn.Module):
 
     # todo xinglibao set an empirical value for gaussian_mask_ratio
     def forward(self, imgs, mask_ratio=0.75, gaussian_mask_ratio=None):
-        # todo xinglibao verify whether the gaussian mask was applied successfully
-        gaussian_masked_imgs = batch_gaussian_mask(imgs, mask_ratio=gaussian_mask_ratio)
-        latent, mask, ids_restore = self.forward_encoder(gaussian_masked_imgs, mask_ratio)
+        if gaussian_mask_ratio is not None and gaussian_mask_ratio == 0:
+            latent, mask, ids_restore = self.forward_encoder(imgs, mask_ratio)
+        else:
+            # todo xinglibao verify whether the gaussian mask was applied successfully
+            gaussian_masked_imgs = batch_gaussian_mask(imgs, mask_ratio=gaussian_mask_ratio)
+            latent, mask, ids_restore = self.forward_encoder(gaussian_masked_imgs, mask_ratio)
         pred = self.forward_decoder(latent, ids_restore)  # [N, L, p*p*3]
         loss = self.forward_loss(imgs, pred, mask)
         return loss, pred, mask
