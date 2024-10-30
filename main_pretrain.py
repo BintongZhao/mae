@@ -34,7 +34,7 @@ import models_mae
 from engine_pretrain import train_one_epoch
 
 from utils.crop_for_wifi import CropForWiFi
-from utils.wifi_dataset import WiFiDataset
+from utils.datasets.wifi_dataset import WiFiDataset
 
 
 def get_args_parser():

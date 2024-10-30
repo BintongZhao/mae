@@ -4,7 +4,7 @@ import torch
 import torchvision.transforms as transforms
 
 from torch.utils.data import DataLoader
-from utils.wifi_dataset import WiFiDataset
+from utils.datasets.wifi_dataset import WiFiDataset
 from utils.crop_for_wifi import CropForWiFi
 from utils.mae_feature_extractor import MAEFeatureExtractor
 from utils.logger import Logger
